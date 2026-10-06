@@ -6,7 +6,7 @@ Summary:        Cockpit interface for the RHEL Command Line Assistant
 
 License:        GPL3
 URL:            https://github.com/chipatredhat/cockpit-cla
-Source0:        %{name}-%{version}-%{release}.tar.gz
+Source0:        %{name}-%{version}.tar.gz
 
 BuildArch:      noarch
 
