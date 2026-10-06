@@ -127,7 +127,7 @@
     function render() {
         historyEl.replaceChildren();
         if (history.length === 0) {
-            historyEl.appendChild(el("p", "empty", "No history yet. Type a question above and press Enter."));
+            historyEl.appendChild(el("p", "empty", "No history yet. Enter a query above and press Enter."));
             return;
         }
         history.forEach(function (entry) {
