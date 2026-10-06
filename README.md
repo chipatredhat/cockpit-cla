@@ -15,3 +15,4 @@ rpm that can be installed without the need to build it yourself with:
 
 the .spec file goes in your rpmbuild/SPECS directory, the .tar.gz file goes in your rpmbuild/SOURCES directory, and you build your rpm with rpmbuild -bb <path/to>/cockpit-cla.spec
 
+props to Choirboy (IYKYK) for suggesting I put this into a cockpit plugin.
