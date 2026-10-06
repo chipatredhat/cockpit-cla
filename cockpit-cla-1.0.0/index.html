@@ -1,0 +1,30 @@
+<!-- Copyright © 2026 Chip Shabazian - chip@redhat.com -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>RHEL Command Line Assistant</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="cla.css">
+    <script src="../base1/cockpit.js"></script>
+</head>
+<body>
+    <main class="cla">
+        <header class="cla-header">
+            <h1>RHEL Command Line Assistant</h1>
+            <button type="button" id="new-session" class="btn btn-secondary">Start New Session</button>
+        </header>
+
+        <form id="query-form" class="cla-form" autocomplete="off">
+            <label for="query" class="sr-only">RHEL Command Line Assistant</label>
+            <input type="text" id="query" name="query"
+                   placeholder="Ask a question, e.g. what is RHEL" autofocus>
+            <button type="submit" id="run" class="btn btn-primary">Run Command</button>
+        </form>
+
+        <div id="status" class="cla-status" role="status" aria-live="polite" hidden></div>
+        <div id="history" class="cla-history" aria-live="polite"></div>
+    </main>
+    <script src="cla.js"></script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+/* Copyright © 2026 Chip Shabazian - chip@redhat.com */
+:root {
+    --bg: #f0f0f0;
+    --card: #ffffff;
+    --text: #151515;
+    --muted: #6a6e73;
+    --border: #d2d2d2;
+    --accent: #0066cc;
+    --accent-hover: #004080;
+    --prompt: #3e8635;
+    --err-bg: #faeaea;
+    --err-text: #a30000;
+    --out-bg: #f7f7f7;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not(.pf-v5-theme-light):not(.pf-v6-theme-light) {
+        --bg: #1b1d21;
+        --card: #212427;
+        --text: #e0e0e0;
+        --muted: #a0a4a8;
+        --border: #3c3f42;
+        --accent: #4394e5;
+        --accent-hover: #2b9af3;
+        --prompt: #7cc674;
+        --err-bg: #3a1f1f;
+        --err-text: #ff9b9b;
+        --out-bg: #181a1d;
+    }
+}
+
+html.pf-v5-theme-dark,
+html.pf-v6-theme-dark {
+    --bg: #1b1d21;
+    --card: #212427;
+    --text: #e0e0e0;
+    --muted: #a0a4a8;
+    --border: #3c3f42;
+    --accent: #4394e5;
+    --accent-hover: #2b9af3;
+    --prompt: #7cc674;
+    --err-bg: #3a1f1f;
+    --err-text: #ff9b9b;
+    --out-bg: #181a1d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Red Hat Text", "Overpass", system-ui, sans-serif;
+    font-size: 14px;
+}
+
+.cla {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+}
+
+.cla-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.cla-header h1 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.cla-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.cla-form input {
+    flex: 1;
+    padding: 0.55rem 0.75rem;
+    font: inherit;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+}
+
+.cla-form input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.btn {
+    padding: 0.5rem 1rem;
+    font: inherit;
+    border-radius: 3px;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-secondary { background: transparent; color: var(--accent); border-color: var(--accent); }
+
+.cla-status {
+    margin-bottom: 1rem;
+    color: var(--muted);
+    font-style: italic;
+}
+
+.entry {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.entry-command {
+    font-family: "Red Hat Mono", ui-monospace, monospace;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    overflow-wrap: anywhere;
+}
+
+.prompt { color: var(--prompt); }
+
+.entry pre {
+    margin: 0.4rem 0 0;
+    padding: 0.6rem 0.75rem;
+    background: var(--out-bg);
+    border-radius: 3px;
+    font-family: "Red Hat Mono", ui-monospace, monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.entry-error { background: var(--err-bg) !important; color: var(--err-text); }
+.entry-rc { margin-top: 0.4rem; font-size: 12px; color: var(--muted); }
+.muted, .empty { color: var(--muted); }
+
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}

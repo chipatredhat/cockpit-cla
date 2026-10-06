@@ -1,0 +1,18 @@
+{
+    "version": 0,
+    "requires": {
+        "cockpit": "200"
+    },
+    "menu": {
+        "index": {
+            "label": "Command Line Assistant",
+            "order": 60,
+            "keywords": [
+                {
+                    "matches": ["rhel", "command line assistant", "assistant", "cla", "ai", "c"],
+                    "goto": ""
+                }
+            ]
+        }
+    }
+}
