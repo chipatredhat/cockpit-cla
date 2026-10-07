@@ -130,10 +130,11 @@
             historyEl.appendChild(el("p", "empty", "No history yet. Enter a query above and press Enter."));
             return;
         }
-        history.forEach(function (entry) {
+        // newest first; the stored array stays oldest-first
+        history.slice().reverse().forEach(function (entry) {
             historyEl.appendChild(renderEntry(entry));
         });
-        window.scrollTo(0, document.body.scrollHeight);
+        historyEl.scrollTop = 0;
     }
 
     function setRunning(state) {

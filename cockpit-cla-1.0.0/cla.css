@@ -58,6 +58,16 @@ body {
     max-width: 960px;
     margin: 0 auto;
     padding: 1.5rem 1rem 3rem;
+    /* fill the page so the history can take whatever height is left */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.cla-history {
+    flex: 1 1 auto;
+    min-height: 8rem;
+    overflow-y: auto;
 }
 
 .cla-header {
