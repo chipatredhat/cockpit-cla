@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="addon">
+  <id>org.cockpit_project.cla</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <name>Assistant</name>
+  <summary>Ask the RHEL command-line assistant from the web console</summary>
+  <description>
+    <p>
+      A web console front end for the RHEL command-line assistant: ask a
+      question, optionally with pasted text or a host file as context, and
+      read the answer.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/chipatredhat/cockpit-cla</url>
+  <url type="bugtracker">https://github.com/chipatredhat/cockpit-cla/issues</url>
+  <extends>org.cockpit_project.cockpit</extends>
+  <launchable type="cockpit-manifest">cla</launchable>
+</component>

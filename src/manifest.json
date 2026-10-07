@@ -1,0 +1,16 @@
+{
+    "requires": {
+        "cockpit": "286"
+    },
+
+    "tools": {
+        "index": {
+            "label": "Assistant",
+            "keywords": [
+                {
+                    "matches": ["command line assistant", "cla", "lightspeed", "ai", "troubleshoot"]
+                }
+            ]
+        }
+    }
+}

@@ -1,0 +1,15 @@
+pkgname=cockpit-cla
+pkgver=VERSION
+pkgrel=1
+pkgdesc='Cockpit front end for the RHEL command-line assistant'
+arch=('any')
+url='https://github.com/chipatredhat/cockpit-cla'
+license=(LGPL)
+depends=(cockpit)
+source=("SOURCE")
+sha256sums=('SKIP')
+
+package() {
+  cd $pkgname
+  make DESTDIR="$pkgdir" install PREFIX=/usr
+}

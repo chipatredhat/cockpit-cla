@@ -1,0 +1,220 @@
+#!/usr/bin/env node
+
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+
+import { sassPlugin } from 'esbuild-sass-plugin';
+
+import { cockpitPoEsbuildPlugin } from './pkg/lib/cockpit-po-plugin.js';
+import { cockpitRsyncEsbuildPlugin } from './pkg/lib/cockpit-rsync-plugin.js';
+import { cleanPlugin } from './pkg/lib/esbuild-cleanup-plugin.js';
+import { cockpitCompressPlugin } from './pkg/lib/esbuild-compress-plugin.js';
+
+const useWasm = os.arch() !== 'x64';
+
+const esbuild = await (async () => {
+    try {
+        // Try node_modules first for installs with devDependencies
+        return (await import(useWasm ? 'esbuild-wasm' : 'esbuild')).default;
+    } catch (e) {
+        if (e.code !== 'ERR_MODULE_NOT_FOUND')
+            throw e;
+
+        // Fall back to distro package (e.g. Debian's /usr/lib/*/nodejs/esbuild)
+        // Use createRequire to leverage Node's module resolution which searches system paths
+        // Use require.resolve to find esbuild in system paths, then import it
+        const require = createRequire(import.meta.url);
+        return (await import(require.resolve('esbuild'))).default;
+    }
+})();
+
+const production = process.env.NODE_ENV === 'production';
+// List of directories to use when using import statements
+const nodePaths = ['pkg/lib'];
+const outdir = 'dist';
+
+// Obtain package name from package.json
+const packageJson = JSON.parse(fs.readFileSync('package.json'));
+
+const parser = (await import('argparse')).default.ArgumentParser();
+/* eslint-disable max-len */
+parser.add_argument('-r', '--rsync', { help: "rsync bundles to ssh target after build", metavar: "HOST" });
+parser.add_argument('-w', '--watch', { action: 'store_true', help: "Enable watch mode", default: process.env.ESBUILD_WATCH === "true" });
+/* eslint-enable max-len */
+const args = parser.parse_args();
+
+if (args.rsync)
+    process.env.RSYNC = args.rsync;
+
+function notifyEndPlugin() {
+    return {
+        name: 'notify-end',
+        setup(build) {
+            let startTime;
+
+            build.onStart(() => {
+                startTime = new Date();
+            });
+
+            build.onEnd(() => {
+                const endTime = new Date();
+                const timeStamp = endTime.toTimeString().split(' ')[0];
+                console.log(`${timeStamp}: Build finished in ${endTime - startTime} ms`);
+            });
+        }
+    };
+}
+
+// similar to fs.watch(), but recursively watches all subdirectories
+function watch_dirs(dir, on_change) {
+    const callback = (ev, dir, fname) => {
+        // only listen for "change" events, as renames are noisy
+        // ignore hidden files
+        if (ev !== "change" || fname.startsWith('.')) {
+            return;
+        }
+        on_change(path.join(dir, fname));
+    };
+
+    fs.watch(dir, {}, (ev, path) => callback(ev, dir, path));
+
+    // watch all subdirectories in dir
+    const d = fs.opendirSync(dir);
+    let dirent;
+
+    while ((dirent = d.readSync()) !== null) {
+        if (dirent.isDirectory())
+            watch_dirs(path.join(dir, dirent.name), on_change);
+    }
+    d.closeSync();
+}
+
+// esbuild leaves font/image url()s external, so the bundled CSS points at
+// ./assets/... files that never land in dist on their own. Copy exactly the
+// files the built CSS references from PatternFly's assets directory, rather
+// than the whole directory (wallpapers, demo logos, .scss sources), and fail
+// the build if a referenced file doesn't exist, so a PatternFly upgrade can't
+// silently add or break one. Cockpit's own ../../static/fonts are left alone.
+function copyReferencedAssets() {
+    const pfAssets = './node_modules/@patternfly/patternfly/assets';
+    const wanted = new Set();
+
+    for (const file of fs.readdirSync(outdir).filter(f => f.endsWith('.css'))) {
+        const css = fs.readFileSync(path.join(outdir, file), 'utf8');
+        for (const [, url] of css.matchAll(/url\(\s*["']?\.\/assets\/([^"')?#]+)/g))
+            wanted.add(url);
+    }
+
+    for (const rel of wanted) {
+        const src = path.join(pfAssets, rel);
+        if (!fs.existsSync(src))
+            throw new Error(`CSS references assets/${rel}, but ${src} does not exist`);
+        fs.mkdirSync(path.dirname(path.join(outdir, 'assets', rel)), { recursive: true });
+        fs.copyFileSync(src, path.join(outdir, 'assets', rel));
+    }
+}
+
+const context = await esbuild.context({
+    ...!production ? { sourcemap: "linked" } : {},
+    bundle: true,
+    entryPoints: ['./src/index.jsx'],
+    // Allow external font files which live in ../../static/fonts
+    external: ['*.woff', '*.woff2', '*.jpg', '*.svg', '../../assets*'],
+    // Move all legal comments to a .LEGAL.txt file
+    legalComments: 'external',
+    loader: { ".js": "jsx", ".py": "text" },
+    minify: production,
+    nodePaths,
+    outdir,
+    metafile: true,
+    target: ['es2020'],
+    plugins: [
+        cleanPlugin(),
+        // Esbuild will only copy assets that are explicitly imported and used in the code.
+        // Copy the other files here.
+        {
+            name: 'copy-assets',
+            setup(build) {
+                build.onEnd((output, _outputFiles) => {
+                    if (output?.errors.length === 0) {
+                        fs.copyFileSync('./src/manifest.json', './dist/manifest.json');
+                        // Cache-bust script/link tags with a fresh value every build —
+                        // a static ?v=N left unbumped means browsers can silently keep
+                        // serving a stale bundle after a redeploy until a hard refresh.
+                        const html = fs.readFileSync('./src/index.html', 'utf8')
+                                .replace(/\?v=\d+/g, `?v=${Date.now()}`);
+                        fs.writeFileSync('./dist/index.html', html);
+                        copyReferencedAssets();
+                    }
+                });
+            }
+        },
+
+        sassPlugin({
+            loadPaths: [...nodePaths, 'node_modules'],
+            filter: /\.scss/,
+            quietDeps: true,
+        }),
+
+        cockpitPoEsbuildPlugin(),
+        ...production ? [cockpitCompressPlugin()] : [],
+        cockpitRsyncEsbuildPlugin({ dest: packageJson.name }),
+        notifyEndPlugin(),
+    ]
+});
+
+try {
+    const result = await context.rebuild();
+
+    // skip metafile and runtime module calculation in watch mode
+    if (!args.watch) {
+        fs.writeFileSync('metafile.json', JSON.stringify(result.metafile));
+
+        // Extract bundled npm packages for dependency tracking
+        const bundledPackages = new Set();
+        for (const inputPath of Object.keys(result.metafile.inputs)) {
+            // Match paths like node_modules/package-name/ or node_modules/@scope/package-name/
+            const match = inputPath.match(/^node_modules\/(@[^/]+\/[^/]+|[^/]+)\//);
+            if (match)
+                bundledPackages.add(match[1]);
+        }
+
+        // Look up versions from package-lock.json and output simple format
+        const packageLock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+        const deps = [];
+        for (const pkgName of Array.from(bundledPackages).sort()) {
+            const lockKey = `node_modules/${pkgName}`;
+            const pkgInfo = packageLock.packages?.[lockKey];
+            if (pkgInfo?.version)
+                deps.push(`${pkgName} ${pkgInfo.version}`);
+            else
+                console.error(`Warning: Could not find version for ${pkgName}`);
+        }
+        fs.writeFileSync('runtime-npm-modules.txt', deps.join('\n') + '\n');
+    }
+} catch (e) {
+    if (!args.watch)
+        process.exit(1);
+    // ignore errors in watch mode
+}
+
+if (args.watch) {
+    const on_change = async path => {
+        console.log("change detected:", path);
+        await context.cancel();
+
+        try {
+            await context.rebuild();
+        } catch (e) {} // ignore in watch mode
+    };
+
+    watch_dirs('src', on_change);
+
+    // wait forever until Control-C
+    await new Promise(() => {});
+}
+
+context.dispose();

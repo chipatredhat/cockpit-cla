@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+Name:           cockpit-cla
+Version:        %{VERSION}
+Release:        1%{?dist}
+Summary:        Cockpit front end for the RHEL command-line assistant
+License:        LGPL-2.1-or-later
+URL:            https://github.com/chipatredhat/cockpit-cla
+
+# distributions which ship nodejs-esbuild can rebuild the bundle during package build
+%if 0%{?fedora} >= 42
+%define rebuild_bundle 1
+%endif
+
+Source0: https://github.com/chipatredhat/%{name}/releases/download/%{version}/%{name}-%{version}.tar.xz
+Source1: https://github.com/chipatredhat/%{name}/releases/download/%{version}/%{name}-node-%{version}.tar.xz
+
+BuildArch:      noarch
+%if 0%{?suse_version}
+# Suse's package has a different name
+BuildRequires:  appstream-glib
+%else
+BuildRequires:  libappstream-glib
+%endif
+BuildRequires:  make
+BuildRequires:  gettext
+%if 0%{?rhel} && 0%{?rhel} <= 8
+BuildRequires:  libappstream-glib-devel
+%endif
+%if %{defined rebuild_bundle}
+BuildRequires:  /usr/bin/node
+BuildRequires:  nodejs-esbuild
+%endif
+
+Requires:       cockpit-bridge
+# Recommends, not Requires: the module installs alone and shows an
+# install-hint empty state when the assistant is missing (DESIGN.md)
+Recommends:     command-line-assistant
+
+%{NPM_PROVIDES}
+
+%description
+A Cockpit front end for the RHEL command-line assistant: ask a question,
+optionally with pasted text or a host file as context, and read the answer.
+
+%prep
+%setup -q -n %{name}
+%if %{defined rebuild_bundle}
+%setup -q -D -T -a 1 -n %{name}
+%endif
+
+%build
+%if %{defined rebuild_bundle}
+rm -rf dist
+# HACK: node module packaging is broken in Fedora <= 43; should be in
+# common location, not major version specific one
+NODE_ENV=production NODE_PATH=/usr/lib/node_modules:$(echo /usr/lib/node_modules_*) ./build.js
+%else
+# Use pre-built bundle on distributions without nodejs-esbuild
+%endif
+
+%install
+%make_install PREFIX=/usr
+appstream-util validate-relax --nonet %{buildroot}/%{_datadir}/metainfo/*
+
+# drop source maps, they are large and just for debugging
+find %{buildroot}%{_datadir}/cockpit/ -name '*.map' | xargs --no-run-if-empty rm --verbose
+
+%files
+%doc README.md
+%license LICENSE dist/index.js.LEGAL.txt
+%{_datadir}/cockpit/*
+%{_datadir}/metainfo/*
+
+%changelog
+* Wed Oct 07 2026 Peter Buchan <pbuchan@redhat.com> - 2.0.0-1
+- Rewrite; supersedes the 1.0.x plain-JavaScript version under the same name
+  and URL (/cla), so an upgrade replaces it
+- Talk to the assistant daemon (clad) over its D-Bus API as the logged-in user
+  instead of spawning the c command
+- React and PatternFly 6, following the web console's own look
+- History lives in clad, per user, and is shared with c; the browser's
+  local storage copy is no longer used
+- Named chats: create, select and delete; the web console uses a "cockpit" chat
+- Context from pasted text or a host file, read with administrative access
+  when it is turned on; the 32,000-character limit is enforced before sending
+- Answers rendered as sanitized Markdown, with copy buttons; History search
+  and Markdown export
+- Supports RHEL 9 and RHEL 10; Playwright test suite (Chromium and Firefox)
+- Maintainer: Chip Shabazian <chip@redhat.com>

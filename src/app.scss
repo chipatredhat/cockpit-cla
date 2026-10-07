@@ -1,0 +1,377 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+@use "page.scss";
+
+// No "conditions" in manifest.json on purpose: the page must still load and
+// show an install hint when command-line-assistant is missing.
+
+.pf-v6-c-page__main-section {
+    gap: var(--pf-t--global--spacer--lg);
+}
+
+.pf-v6-c-card {
+    --pf-v6-c-card--BorderColor: var(--pf-t--global--border--color--100);
+}
+
+.pf-v6-c-description-list {
+    --pf-v6-c-description-list--RowGap: var(--pf-t--global--spacer--xs);
+}
+
+// Title and subtitle on the left, "Connected" and its details on the right.
+.ct-assistant-header {
+    margin-block-end: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-subtitle {
+    color: var(--pf-t--global--text--color--subtle);
+}
+
+.ct-assistant-status {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+// The (i) "About" popover: endpoint and versions, then the two feedback sections.
+.ct-assistant-about-divider {
+    margin-block: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-feedback,
+.ct-assistant-module-feedback {
+    > * + * {
+        margin-block-start: var(--pf-t--global--spacer--xs);
+    }
+}
+
+.ct-assistant-module-feedback {
+    margin-block-start: var(--pf-t--global--spacer--md);
+}
+
+.ct-assistant-tabs-row {
+    margin-block-end: var(--pf-t--global--spacer--md);
+    row-gap: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-chat-label {
+    font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+// Fits the chat's name, within reason.
+.ct-assistant-chat-toggle {
+    min-inline-size: 10rem;
+    max-inline-size: 20rem;
+}
+
+.ct-assistant-chat-limit {
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+    max-inline-size: 20rem;
+}
+
+.ct-assistant-modal-body > * + * {
+    margin-block-start: var(--pf-t--global--spacer--md);
+}
+
+.ct-assistant-always-review {
+    margin-block-start: var(--pf-t--global--spacer--md);
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+// Ask form: question, attachment, Ask, then the context editor and what is sent.
+.ct-assistant-saved-to {
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+.ct-assistant-attachment {
+    padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+    border: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--100);
+    border-radius: var(--pf-t--global--border--radius--small);
+    overflow-wrap: anywhere;
+}
+
+.ct-assistant-attachment-icon {
+    color: var(--pf-t--global--icon--color--subtle);
+}
+
+.ct-assistant-attachment-text {
+    min-inline-size: 0;
+}
+
+.ct-assistant-file-read-as {
+    color: var(--pf-t--global--text--color--subtle);
+}
+
+.ct-assistant-keep {
+    margin-block-start: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-ask-status {
+    color: var(--pf-t--global--text--color--subtle);
+    display: flex;
+    gap: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-context {
+    .pf-v6-c-expandable-section__content > * {
+        margin-block-end: var(--pf-t--global--spacer--md);
+    }
+}
+
+.ct-assistant-path .pf-v6-c-helper-text {
+    margin-block-start: var(--pf-t--global--spacer--xs);
+}
+
+.ct-assistant-file-hint {
+    margin-block-start: var(--pf-t--global--spacer--xs);
+}
+
+.ct-assistant-sent {
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+.ct-assistant-systeminfo-help {
+    vertical-align: middle;
+}
+
+.ct-assistant-counter {
+    white-space: nowrap;
+}
+
+// Newest exchange first, right under the Ask form. Plain block stacking —
+// PF Stack's height: 100% fights ct-page-fill.
+.ct-assistant-exchanges {
+    margin-block-start: var(--pf-t--global--spacer--lg);
+}
+
+.ct-assistant-exchange {
+    margin-block-end: var(--pf-t--global--spacer--lg);
+    scroll-margin-block: var(--pf-t--global--spacer--lg);
+}
+
+.ct-assistant-chat-divider {
+    margin-block-end: var(--pf-t--global--spacer--lg);
+}
+
+.ct-assistant-chat-divider-text {
+    display: block;
+    margin-block-start: var(--pf-t--global--spacer--sm);
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+// "Q:" in its own column, so a multi-line question hangs under its first line.
+.ct-assistant-question {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--pf-t--global--spacer--sm);
+    margin-block-end: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-question-label {
+    font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.ct-assistant-question-text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.ct-assistant-context-note {
+    grid-column: 2;
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+.ct-assistant-pending {
+    display: flex;
+    align-items: center;
+    gap: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-elapsed {
+    color: var(--pf-t--global--text--color--subtle);
+    font-variant-numeric: tabular-nums;
+}
+
+.ct-assistant-history-note {
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+.ct-assistant-copy-error {
+    color: var(--pf-t--global--text--color--status--danger--default);
+    font-size: var(--pf-t--global--font--size--sm);
+    margin-inline-start: var(--pf-t--global--spacer--sm);
+}
+
+// History
+// Refresh, Export and the two Clear buttons wrap onto more lines on a narrow
+// screen instead of pushing the page sideways.
+.ct-assistant-history-toolbar .pf-v6-c-toolbar__group {
+    flex-wrap: wrap;
+    row-gap: var(--pf-t--global--spacer--sm);
+}
+
+.ct-assistant-history-count {
+    color: var(--pf-t--global--text--color--subtle);
+    font-size: var(--pf-t--global--font--size--sm);
+}
+
+.ct-assistant-history-search {
+    min-inline-size: 16rem;
+}
+
+.ct-assistant-history-time {
+    overflow-wrap: anywhere;
+}
+
+// The row shows the start of the question; the expanded row has the answer.
+.ct-assistant-history-question {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+// A stored answer must never widen the table: collapsed expandable rows still
+// take part in its width, and a long line of code is wider than a phone. With
+// its own inline size contained, wide code scrolls inside its own block.
+.ct-assistant-history-entry {
+    contain: inline-size;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+}
+
+@media (width >= 768px) {
+    .ct-assistant-history-time {
+        white-space: nowrap;
+    }
+
+    .ct-assistant-history-entry {
+        padding-inline-start: var(--pf-t--global--spacer--2xl);
+    }
+}
+
+// Rendered answer (components/Markdown.jsx)
+.ct-markdown {
+    overflow-wrap: anywhere;
+
+    > :first-child {
+        margin-block-start: 0;
+    }
+
+    p,
+    ul,
+    ol,
+    pre,
+    blockquote,
+    .ct-md-codeblock,
+    .ct-md-table-wrap {
+        margin-block: 0 var(--pf-t--global--spacer--md);
+    }
+
+    // Fenced code: the copy button sits in the block's top-right corner,
+    // and the block keeps room for it so it never covers the first line's end.
+    .ct-md-codeblock {
+        position: relative;
+
+        > pre {
+            margin-block: 0;
+            padding-inline-end: var(--pf-t--global--spacer--2xl);
+        }
+    }
+
+    .ct-md-copy-code {
+        position: absolute;
+        inset-block-start: var(--pf-t--global--spacer--xs);
+        inset-inline-end: var(--pf-t--global--spacer--xs);
+    }
+
+    .ct-md-copy-error {
+        color: var(--pf-t--global--text--color--status--danger--default);
+        font-size: var(--pf-t--global--font--size--sm);
+        margin-block-start: var(--pf-t--global--spacer--xs);
+    }
+
+    ul {
+        list-style: disc;
+        padding-inline-start: var(--pf-t--global--spacer--lg);
+    }
+
+    ol {
+        list-style: decimal;
+        padding-inline-start: var(--pf-t--global--spacer--lg);
+    }
+
+    li > ul,
+    li > ol {
+        margin-block-end: 0;
+    }
+
+    .ct-md-heading {
+        font-weight: var(--pf-t--global--font--weight--heading--default);
+        margin-block: var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--sm);
+    }
+
+    blockquote {
+        border-inline-start: var(--pf-t--global--border--width--strong) solid var(--pf-t--global--border--color--100);
+        padding-inline-start: var(--pf-t--global--spacer--md);
+        color: var(--pf-t--global--text--color--subtle);
+    }
+
+    hr {
+        border: 0;
+        border-block-start: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--100);
+        margin-block: var(--pf-t--global--spacer--md);
+    }
+
+    .ct-md-code,
+    .ct-md-pre {
+        font-family: var(--pf-t--global--font--family--mono);
+        font-size: var(--pf-t--global--font--size--sm);
+        background: var(--pf-t--global--background--color--secondary--default);
+        border-radius: var(--pf-t--global--border--radius--small);
+    }
+
+    .ct-md-code {
+        padding-inline: var(--pf-t--global--spacer--xs);
+    }
+
+    .ct-md-pre {
+        padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+        overflow-x: auto;
+        white-space: pre;
+        overflow-wrap: normal;
+    }
+
+    .ct-md-table-wrap {
+        overflow-x: auto;
+    }
+
+    .ct-md-table {
+        border-collapse: collapse;
+
+        th,
+        td {
+            border: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--100);
+            padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+            text-align: start;
+        }
+
+        th {
+            font-weight: var(--pf-t--global--font--weight--body--bold);
+        }
+
+        .ct-md-align-center {
+            text-align: center;
+        }
+
+        .ct-md-align-right {
+            text-align: end;
+        }
+    }
+}

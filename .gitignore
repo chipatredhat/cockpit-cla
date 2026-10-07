@@ -1,0 +1,34 @@
+dist/
+node_modules/
+metafile.json
+runtime-npm-modules.txt
+reference/
+rpm-output/
+
+# Claude Code — user-specific, not project code
+.claude/
+
+# Internal planning and session docs — local only
+HANDOFF.md
+CLAUDE.md
+
+# Fetched from upstream Cockpit repo by Makefile's COCKPIT_REPO_FILES rule —
+# let `make` re-fetch fresh each time, don't commit
+pkg/
+test/common/
+tools/
+
+# make dist / make rpm generated files
+cockpit-cla.spec
+packaging/arch/PKGBUILD
+/po/*.pot
+/po/LINGUAS
+
+# Playwright — credentials and generated artifacts stay local
+tests/.env
+tests/screenshots/
+tests/report/
+tests/test-results/
+test-results/
+tests/adhoc/
+tests/usability-shots/
