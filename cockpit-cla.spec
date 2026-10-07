@@ -1,7 +1,7 @@
 # Copyright © 2026 Chip Shabazian - chip@redhat.com
 Name:           cockpit-cla
 Version:        1.0.0
-Release:        2
+Release:        3
 Summary:        Cockpit interface for the RHEL Command Line Assistant
 
 License:        GPL3
@@ -41,6 +41,8 @@ install -p -m 0644 manifest.json index.html cla.js cla.css \
 %{_datadir}/cockpit/cla/cla.css
 
 %changelog
+* Wed Oct 07 2026 Chip <chip@redhat.com> - 1.0.0-3
+- Change history to newest first and add scrollbars
 * Tue Oct 06 2026 Chip <chip@redhat.com> - 1.0.0-2
 - Changed submit button from 'Run Command' to 'Run Query'
 * Tue Oct 06 2026 Chip <chip@redhat.com> - 1.0.0-1
