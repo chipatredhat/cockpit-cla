@@ -7,6 +7,7 @@ const { test, expect } = require('@playwright/test');
 const { callMethod } = require('./helpers/socket.js');
 const { openModule } = require('./helpers/module.js');
 const { loginToCockpit } = require('./helpers/cockpit.js');
+const { cladBuild, expectEndpointLine } = require('./helpers/clad-build.js');
 
 // The first AskQuestion waits for release(); the second fails with a D-Bus error.
 function heldBackend() {
@@ -67,6 +68,7 @@ test('heading, live announcements and aria-busy', async ({ page }) => {
 test('About: reachable by keyboard, named for screen readers', async ({ page }) => {
     await loginToCockpit(page);
     await expect(page.locator('.ct-assistant-status')).toContainText('Connected', { timeout: 30000 });
+    const expected = await cladBuild(page);
     const button = page.getByRole('button', { name: 'About' });
     await expect(button).toHaveCount(1);
 
@@ -88,7 +90,7 @@ test('About: reachable by keyboard, named for screen readers', async ({ page }) 
     await page.keyboard.press('Enter');
     const details = page.getByRole('dialog', { name: 'About' });
     await expect(details).toBeVisible();
-    await expect(details).toContainText(/Red Hat endpoint|Custom endpoint/);
+    await expectEndpointLine(details, expected);
     await expect(details).toContainText(/command-line-assistant \d+\.\d+\.\d+-\S+/);
     // Its two feedback sections are headed at the same level, and nothing else is a heading.
     await expect(details.getByRole('heading')).toHaveCount(2);

@@ -59,7 +59,39 @@ export function classifyError(ex) {
         return "disabled";
     if (name === "org.freedesktop.DBus.Error.ServiceUnknown" || problem === "not-found")
         return "not-installed";
+    // clad is there but lacks a method this page needs (a build older than
+    // the supported floor): not a connection problem.
+    if (isUnknownMethod(ex))
+        return "unsupported";
     return "error";
+}
+
+// clad's reply to a method its build does not have.
+export function isUnknownMethod(ex) {
+    return ex?.name === "org.freedesktop.DBus.Error.UnknownMethod";
+}
+
+// The oldest command-line-assistant build this page supports (DESIGN.md
+// "Supported command-line-assistant versions"). Older builds lack
+// IsChatAvailable and reject the systeminfo question key.
+export const MIN_VERSION = "0.4.2";
+
+// Whether rpm's VERSION-RELEASE (e.g. "0.3.1-6.el10_0") is older than
+// MIN_VERSION, comparing the dotted numeric VERSION only. null when it can't
+// be told from the string.
+export function isOlderThanMinimum(versionRelease) {
+    const m = /^(\d+(?:\.\d+)*)-/.exec(versionRelease || "");
+    if (!m)
+        return null;
+    const have = m[1].split(".").map(Number);
+    const need = MIN_VERSION.split(".").map(Number);
+    for (let i = 0; i < Math.max(have.length, need.length); i++) {
+        const a = have[i] || 0;
+        const b = need[i] || 0;
+        if (a !== b)
+            return a < b;
+    }
+    return false;
 }
 
 export async function getUserId(uid) {
@@ -67,9 +99,25 @@ export async function getUserId(uid) {
     return userId;
 }
 
+// clad's answer (true/false), or null when this clad build has no such method
+// (before 0.5.2). Any other failure rejects.
 export async function isRedHatManagedEndpoint() {
-    const [managed] = await call(CHAT, "IsRedHatManagedEndpoint", "", []);
-    return managed;
+    try {
+        const [managed] = await call(CHAT, "IsRedHatManagedEndpoint", "", []);
+        return managed;
+    } catch (ex) {
+        if (isUnknownMethod(ex))
+            return null;
+        throw ex;
+    }
+}
+
+// Whether `c` of this clad build adds Red Hat's "may be used to improve Red
+// Hat's products or services" sentences: when clad says the endpoint is Red
+// Hat's, and always on builds without IsRedHatManagedEndpoint (`c` before
+// 0.5.2 prints them unconditionally). Not known yet (undefined): not shown.
+export function showsRedHatSentence(managed) {
+    return managed === true || managed === null;
 }
 
 // cockpit.dbus hands back variants as { t, v }.

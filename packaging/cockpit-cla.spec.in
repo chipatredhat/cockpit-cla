@@ -34,8 +34,9 @@ BuildRequires:  nodejs-esbuild
 
 Requires:       cockpit-bridge
 # Recommends, not Requires: the module installs alone and shows an
-# install-hint empty state when the assistant is missing (DESIGN.md)
-Recommends:     command-line-assistant
+# install-hint empty state when the assistant is missing, or an upgrade hint
+# when it is older than 0.4.2 (DESIGN.md)
+Recommends:     command-line-assistant >= 0.4.2
 
 %{NPM_PROVIDES}
 
@@ -73,6 +74,18 @@ find %{buildroot}%{_datadir}/cockpit/ -name '*.map' | xargs --no-run-if-empty rm
 %{_datadir}/metainfo/*
 
 %changelog
+* Wed Oct 07 2026 Peter Buchan <pbuchan@redhat.com> - 2.0.1-1
+- Support command-line-assistant 0.4.2 and newer: on builds without
+  IsRedHatManagedEndpoint (0.4.2-1, and 0.5.0-2 as RHEL 9.8/10.2 GA ship it)
+  the page now connects instead of failing with "No such method
+  IsRedHatManagedEndpoint", and shows Red Hat's legal and feedback sentences
+  as c of those builds does; the About endpoint line is left out there
+- command-line-assistant older than 0.4.2 (0.3.1): an "Unsupported version"
+  state with the upgrade command instead of an error
+- About endpoint line now reads "Red Hat managed endpoint" or "Not a Red Hat
+  managed endpoint", as clad answers
+- Recommends: command-line-assistant >= 0.4.2
+
 * Wed Oct 07 2026 Peter Buchan <pbuchan@redhat.com> - 2.0.0-1
 - Rewrite; supersedes the 1.0.x plain-JavaScript version under the same name
   and URL (/cla), so an upgrade replaces it

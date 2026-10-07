@@ -2,19 +2,21 @@ const { test, expect } = require('@playwright/test');
 const { loginToCockpit, COCKPIT_URL, MODULE_PATH } = require('./helpers/cockpit.js');
 const { routeCockpitSocket, callMethod } = require('./helpers/socket.js');
 const { openAbout, expectStatusLabel, ssh } = require('./helpers/module.js');
+const { cladBuild, expectEndpointLine } = require('./helpers/clad-build.js');
 
 // `c feedback`, verbatim (command_line_assistant/commands/feedback.py,
 // 0.5.2-4, identical on RHEL 9.8 and 10.2). The managed sentence is appended
-// only when IsRedHatManagedEndpoint() is true, as the CLI does.
+// whenever the installed build's CLI appends it: when IsRedHatManagedEndpoint()
+// is true, and always on builds without that method (before 0.5.2).
 const FEEDBACK_NOTICE = 'Do not include any personal information or other sensitive information in your feedback.';
 const FEEDBACK_MANAGED = "Feedback may be used to improve Red Hat's products or services.";
 const FEEDBACK_ADDRESS_LINE = 'To submit feedback, use the following email address: cla-feedback@redhat.com.';
 const ISSUES_URL = 'https://github.com/chipatredhat/cockpit-cla/issues';
 
 // The two feedback sections of the open About popover: the assistant's, with
-// or without the managed-endpoint sentence, then this module's issue tracker.
+// or without Red Hat's sentence, then this module's issue tracker.
 // They are the popover's only headings, both h2.
-async function expectFeedback(about, { managed }) {
+async function expectFeedback(about, { redHatSentence }) {
     const headings = about.getByRole('heading');
     await expect(headings).toHaveText(['Feedback on the command-line assistant', 'Feedback on this page']);
     await expect(about.locator('h2')).toHaveCount(2);
@@ -23,8 +25,8 @@ async function expectFeedback(about, { managed }) {
     await expect(feedback.getByRole('heading', { name: 'Feedback on the command-line assistant', exact: true }))
             .toBeVisible();
     await expect(feedback.locator('.ct-assistant-feedback-notice'))
-            .toHaveText(managed ? `${FEEDBACK_NOTICE} ${FEEDBACK_MANAGED}` : FEEDBACK_NOTICE);
-    await expect(feedback.locator('.ct-assistant-feedback-managed')).toHaveCount(managed ? 1 : 0);
+            .toHaveText(redHatSentence ? `${FEEDBACK_NOTICE} ${FEEDBACK_MANAGED}` : FEEDBACK_NOTICE);
+    await expect(feedback.locator('.ct-assistant-feedback-managed')).toHaveCount(redHatSentence ? 1 : 0);
     await expect(feedback.locator('.ct-assistant-feedback-address')).toHaveText(FEEDBACK_ADDRESS_LINE);
     const link = feedback.getByRole('link', { name: 'cla-feedback@redhat.com' });
     await expect(link).toHaveAttribute('href', 'mailto:cla-feedback@redhat.com');
@@ -129,9 +131,11 @@ test.describe('status banner', () => {
         await expect(status).toHaveText('Connected');
 
         // The facts behind it: the test VMs are RHSM-registered, so clad
-        // points at Red Hat's endpoint; the version is rpm's VERSION-RELEASE.
+        // points at Red Hat's endpoint, which builds from 0.5.2 report and
+        // older ones give no way to know; the version is rpm's VERSION-RELEASE.
+        const expected = await cladBuild(page);
         const details = await openAbout(page);
-        await expect(details.locator('.ct-assistant-endpoint')).toHaveText('Red Hat endpoint');
+        await expectEndpointLine(details, expected);
         await expect(details.locator('.ct-assistant-version')).toHaveText(/^command-line-assistant \d+\.\d+\.\d+-\S+$/);
         if (process.env.COCKPIT_SSH) {
             const rpm = ssh("rpm -q --queryformat '%{VERSION}-%{RELEASE}' command-line-assistant").trim();
@@ -141,8 +145,8 @@ test.describe('status banner', () => {
         // The (i) is named "About", and so is its popover.
         await expect(page.getByRole('dialog', { name: 'About' })).toBeVisible();
         await expect(details.locator('.ct-assistant-about-divider')).toHaveCount(1);
-        // Red Hat endpoint: the CLI's managed sentence is there too.
-        await expectFeedback(details, { managed: true });
+        // Red Hat endpoint, or a build whose CLI always adds it: Red Hat's sentence is there too.
+        await expectFeedback(details, { redHatSentence: expected.redHatSentence });
     });
 
     // On a host where the page comes from the installed rpm (no per-user copy
@@ -168,7 +172,7 @@ test.describe('status banner', () => {
 
 // Each test opens the page itself, in the state it needs.
 test.describe('status label and About, in every state', () => {
-    test('custom endpoint: "Custom endpoint", feedback without the managed sentence', async ({ page }) => {
+    test('not a Red Hat endpoint: "Not a Red Hat managed endpoint", feedback without the managed sentence', async ({ page }) => {
         await openWith(page, {
             answer: (_channel, body) => (callMethod(body) === 'IsRedHatManagedEndpoint'
                 ? { reply: [[false]], id: body.id }
@@ -176,15 +180,16 @@ test.describe('status label and About, in every state', () => {
         });
         await expectStatusLabel(page, { text: 'Connected', color: 'green', icon: true });
         const about = await openAbout(page);
-        await expect(about.locator('.ct-assistant-endpoint')).toHaveText('Custom endpoint');
+        await expect(about.locator('.ct-assistant-endpoint')).toHaveText('Not a Red Hat managed endpoint');
         await expectVersion(about);
         await expectModuleVersion(about);
-        await expectFeedback(about, { managed: false });
+        await expectFeedback(about, { redHatSentence: false });
     });
 
     test('module version: "cockpit-cla <v>" when rpm reports it', async ({ page }) => {
         await openWith(page, MODULE_RPM);
         await expectStatusLabel(page, { text: 'Connected', color: 'green', icon: true });
+        const expected = await cladBuild(page);
         const about = await openAbout(page);
         await expect(about.locator('.ct-assistant-module-version'))
                 .toHaveText(`cockpit-cla ${MODULE_RPM_VERSION}`);
@@ -193,9 +198,10 @@ test.describe('status label and About, in every state', () => {
         await expect(about.locator('.ct-assistant-about-divider')).toHaveCount(1);
         const order = await about.locator('.ct-assistant-endpoint, .ct-assistant-version, .ct-assistant-module-version, .ct-assistant-about-divider')
                 .evaluateAll(els => els.map(el => el.className.split(' ').find(c => c.startsWith('ct-'))));
-        expect(order).toEqual(['ct-assistant-endpoint', 'ct-assistant-version', 'ct-assistant-module-version',
-            'ct-assistant-about-divider']);
-        await expectFeedback(about, { managed: true });
+        // (No endpoint line on builds without IsRedHatManagedEndpoint.)
+        expect(order).toEqual([...(expected.endpointLine ? ['ct-assistant-endpoint'] : []),
+            'ct-assistant-version', 'ct-assistant-module-version', 'ct-assistant-about-divider']);
+        await expectFeedback(about, { redHatSentence: expected.redHatSentence });
     });
 
     test('loading: grey "Connecting…", About with only what is known', async ({ page }) => {
@@ -216,7 +222,7 @@ test.describe('status label and About, in every state', () => {
         await expectVersion(about);
         await expectModuleVersion(about);
         await expect(about.locator('.ct-assistant-endpoint')).toHaveCount(0);
-        await expectFeedback(about, { managed: false });
+        await expectFeedback(about, { redHatSentence: false });
         // Still loading after all that.
         await expect(page.locator('.ct-assistant-status .pf-v6-c-label')).toHaveText('Connecting…');
     });
@@ -230,7 +236,7 @@ test.describe('status label and About, in every state', () => {
         await expect(about.locator('.ct-assistant-endpoint')).toHaveCount(0);
         await expectVersion(about);
         await expectModuleVersion(about);
-        await expectFeedback(about, { managed: false });
+        await expectFeedback(about, { redHatSentence: false });
     });
 
     test('connection error: red "Connection error", About still has version and endpoint', async ({ page }) => {
@@ -238,12 +244,14 @@ test.describe('status label and About, in every state', () => {
         await expectStatusLabel(page, { text: 'Connection error', color: 'red', icon: true });
         // The body is unchanged: clad's own error in the alert under the title.
         await expect(page.locator('.ct-assistant-status-detail')).toContainText('Unix user ID mismatch: access denied');
+        const expected = await cladBuild(page);
         const about = await openAbout(page);
-        // clad did answer IsRedHatManagedEndpoint; only GetUserId failed.
-        await expect(about.locator('.ct-assistant-endpoint')).toHaveText('Red Hat endpoint');
+        // clad did answer IsRedHatManagedEndpoint (or, before 0.5.2, said it
+        // has no such method); only GetUserId failed.
+        await expectEndpointLine(about, expected);
         await expectVersion(about);
         await expectModuleVersion(about);
-        await expectFeedback(about, { managed: true });
+        await expectFeedback(about, { redHatSentence: expected.redHatSentence });
     });
 
     test('disabled: grey "Disabled" with a lock, version but no endpoint', async ({ page }) => {
@@ -261,6 +269,6 @@ test.describe('status label and About, in every state', () => {
         await expect(about.locator('.ct-assistant-endpoint')).toHaveCount(0);
         await expectVersion(about);
         await expectModuleVersion(about);
-        await expectFeedback(about, { managed: false });
+        await expectFeedback(about, { redHatSentence: false });
     });
 });

@@ -13,7 +13,8 @@ import { ChatSelector } from './components/ChatSelector.jsx';
 import { HistoryTab } from './components/HistoryTab.jsx';
 import { StatusDetail, StatusLabel } from './components/StatusBanner.jsx';
 import {
-    WEB_CHAT_NAME, classifyError, getChats, getUserId, isChatAvailable, isRedHatManagedEndpoint
+    WEB_CHAT_NAME, classifyError, getChats, getUserId, isChatAvailable, isOlderThanMinimum,
+    isRedHatManagedEndpoint, isUnknownMethod
 } from './lib/clad.js';
 import { getPackageVersion, getSystemInfo } from './lib/host-info.js';
 
@@ -22,10 +23,10 @@ const _ = cockpit.gettext;
 export const App = () => {
     const [status, setStatus] = useState({ state: "loading" });
     // What the (i) "About" popover shows, each fact once known: clad's
-    // IsRedHatManagedEndpoint answer and rpm's versions of clad's package and
-    // this module's, each asked on its own, so they show whatever state the
-    // page is in.
-    const [managed, setManaged] = useState(/** @type {boolean|undefined} */ (undefined));
+    // IsRedHatManagedEndpoint answer (null: this clad build has no such
+    // method) and rpm's versions of clad's package and this module's, each
+    // asked on its own, so they show whatever state the page is in.
+    const [managed, setManaged] = useState(/** @type {boolean|null|undefined} */ (undefined));
     const [version, setVersion] = useState(/** @type {string|null|undefined} */ (undefined));
     const [moduleVersion, setModuleVersion] = useState(/** @type {string|null|undefined} */ (undefined));
     const [systemInfo, setSystemInfo] = useState(null);
@@ -55,9 +56,12 @@ export const App = () => {
                 .then(info => { setSystemInfo(info); setSystemInfoError(null) })
                 .catch(ex => setSystemInfoError(ex.message || String(ex)));
 
-        getPackageVersion("command-line-assistant")
-                .then(setVersion)
-                .catch(ex => { console.warn("Could not read the command-line-assistant version:", ex); setVersion(null) });
+        const versionCall = getPackageVersion("command-line-assistant")
+                .catch(ex => {
+                    console.warn("Could not read the command-line-assistant version:", ex);
+                    return null;
+                });
+        versionCall.then(setVersion);
 
         // Not installed as an rpm on a development install: no line then.
         getPackageVersion("cockpit-cla")
@@ -67,22 +71,38 @@ export const App = () => {
                     setModuleVersion(null);
                 });
 
+        // true/false as clad answers, null when this clad build has no
+        // IsRedHatManagedEndpoint (before 0.5.2).
         const managedCall = isRedHatManagedEndpoint();
         managedCall.then(setManaged, () => setManaged(undefined));
 
+        // IsChatAvailable is what the supported floor (0.4.2) brings, so it is
+        // also the capability check when rpm can't tell; it only reads.
         let userId;
+        let failure = null;
         try {
             const user = await cockpit.user();
             userId = await getUserId(user.id);
+            await isChatAvailable(userId, WEB_CHAT_NAME);
         } catch (ex) {
-            setStatus({ state: classifyError(ex), error: ex.message || String(ex) });
+            failure = ex;
+        }
+
+        const installed = await versionCall;
+        if (isOlderThanMinimum(installed) || (failure && isUnknownMethod(failure))) {
+            setStatus({ state: "unsupported", installed });
             return;
         }
 
+        // userId is kept when it is known, so History still works on an error.
+        if (failure) {
+            setStatus({ state: classifyError(failure), error: failure.message || String(failure), userId });
+            return;
+        }
         try {
             setStatus({ state: "connected", userId, managed: await managedCall });
         } catch (ex) {
-            setStatus({ state: classifyError(ex), error: ex.message || String(ex) });
+            setStatus({ state: classifyError(ex), error: ex.message || String(ex), userId });
         }
     }, []);
 

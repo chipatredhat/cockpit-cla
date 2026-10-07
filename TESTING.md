@@ -3,8 +3,8 @@
 A real, assertion-based Playwright suite lives under `tests/` (one `*.spec.js` per feature:
 `status`, `ask`, `ask-ux`, `chats`, `chat-ask`, `chat-feedback`, `delete-chat`, `context-file`,
 `context-attach`, `limits`, `legal`, `markdown`, `code-copy`, `history`, `history-narrow`,
-`history-export`, `edge-states`, `security`, `a11y`). It runs against a real Cockpit and a real
-`clad` daemon, in both Chromium and Firefox.
+`history-export`, `edge-states`, `security`, `a11y`, `versions`). It runs against a real Cockpit and
+a real `clad` daemon, in both Chromium and Firefox.
 
 ## What you need
 
@@ -13,8 +13,9 @@ A real, assertion-based Playwright suite lives under `tests/` (one `*.spec.js` p
 The module must work on both, so a change is verified on one RHEL 9 and one RHEL 10 host, running
 the full suite against each in turn. Each host needs:
 
-- `cockpit` (the web console listening on port 9090) and `command-line-assistant`, registered with
-  Red Hat so the assistant can answer. A few specs ask the real assistant a short question.
+- `cockpit` (the web console listening on port 9090) and `command-line-assistant` 0.4.2 or newer,
+  registered with Red Hat so the assistant can answer. A few specs ask the real assistant a short
+  question.
 - The module under test installed for the test users, e.g. `make` then
   `rsync -a --delete dist/ <user>@<host>:~/.local/share/cockpit/cla/` (a per-user copy in
   `~/.local/share/cockpit/` takes priority over the system package). The disabled user below needs
@@ -115,6 +116,39 @@ npx playwright test -c tests/playwright.config.js tests/history.spec.js   # one 
 `workers: 1` caps the whole run to a single worker, so the two browsers never hit the shared host
 and Cockpit session at the same time. The HTML report is written to `tests/report/`, and
 screenshots, videos and traces to `tests/screenshots/` (both gitignored).
+
+## Running against another command-line-assistant build
+
+The suite works with every supported build (0.4.2 and newer) and asserts the installed build's own
+behaviour; it never skips because of the build. It finds the build with `rpm -q` over `COCKPIT_SSH`,
+or else from the About popover's version line. On 0.4.2 and 0.5.0 (no `IsRedHatManagedEndpoint`) it
+expects no endpoint line and the Red Hat sentences; on 0.5.2 and newer it expects "Red Hat managed
+endpoint". The test hosts are expected to use clad's default (Red Hat) endpoint.
+
+To switch a disposable test host to another build, move the package and its SELinux subpackage
+together, then restart clad and check what is installed:
+
+```bash
+sudo dnf --showduplicates list command-line-assistant      # what the repos offer
+sudo dnf distro-sync command-line-assistant-0.5.0-2.el10 command-line-assistant-selinux-0.5.0-2.el10
+sudo systemctl restart clad
+rpm -q command-line-assistant command-line-assistant-selinux
+busctl --system introspect com.redhat.lightspeed.chat /com/redhat/lightspeed/chat
+```
+
+(`dnf downgrade …` or `dnf install …` with the same arguments where distro-sync declines.)
+`config.toml` is `%config(noreplace)`: an unmodified one is swapped for the target build's default,
+and a modified one is kept (clad 0.3.1's config schema has no `[backend] timeout`, so going back to
+0.3.1 with such a file would stop clad from starting). Back it up first.
+
+On a build older than 0.4.2 the page shows "Unsupported version", so only `versions.spec.js`
+applies there: `npx playwright test -c tests/playwright.config.js tests/versions.spec.js`. Its first
+test asserts that state on the real host; the stubbed tests in the same file need a supported
+build. Every other spec fails at `openModule` on such a host, with a message saying so.
+
+`versions.spec.js` also covers the older builds on any supported host by stubbing clad's replies:
+`IsRedHatManagedEndpoint` and `IsChatAvailable` answering `UnknownMethod`, rpm reporting 0.3.1, and
+`IsRedHatManagedEndpoint` failing with another error.
 
 ## How the specs reach states a healthy host can't show
 

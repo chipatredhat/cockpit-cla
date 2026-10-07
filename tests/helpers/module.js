@@ -14,7 +14,11 @@ async function openModule(page, route) {
         await routeCockpitSocket(page, route);
         await page.goto(COCKPIT_URL + MODULE_PATH);
     }
-    await expect(page.locator('.ct-assistant-status')).toContainText('Connected', { timeout: 30000 });
+    // A host with a command-line-assistant older than 0.4.2 shows "Unsupported
+    // version" instead; only versions.spec.js applies there (TESTING.md).
+    await expect(page.locator('.ct-assistant-status'),
+                 'the page must connect (an "Unsupported version" host can run only versions.spec.js)')
+            .toContainText('Connected', { timeout: 30000 });
 }
 
 // Open the (i) "About" popover beside the status label and return it. It holds

@@ -40,8 +40,20 @@ means asking again with the context (and, if useful, the earlier answer), and th
 
 - RHEL 9 or RHEL 10
 - [Cockpit](https://cockpit-project.org/) (`cockpit-bridge`; tested with Cockpit 356)
-- `command-line-assistant` (tested with 0.5.2-4), on a host registered with Red Hat so the
-  assistant can reach its endpoint
+- `command-line-assistant` **0.4.2 or newer** (tested with 0.4.2-1, 0.5.0-2 and 0.5.2-4), with an
+  endpoint the assistant can reach: by default Red Hat's service, which needs the host registered
+  with Red Hat
+
+| RHEL release | command-line-assistant | This page |
+|---|---|---|
+| 9.6 / 10.0 | 0.3.1-x | "Unsupported version", with the upgrade command |
+| 9.7 / 10.1 | 0.4.2-1 | Works; no endpoint line in About |
+| 9.8 / 10.2 | 0.5.0-2 | Works; no endpoint line in About |
+| 9.8 / 10.2, updated | 0.5.2-4 | Works |
+
+On builds before 0.5.2, clad cannot say which endpoint it uses, so About leaves that line out and
+the page shows Red Hat's "may be used to improve Red Hat's products or services" sentences, as `c`
+of those builds does. DESIGN.md "Supported command-line-assistant versions" has the details.
 
 The module installs without `command-line-assistant` (it is a weak dependency) and then shows how to
 install it.

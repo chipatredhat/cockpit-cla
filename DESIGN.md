@@ -1,8 +1,9 @@
 # cockpit-cla — Design Decisions
 
 This document describes the module as it is built: its architecture, the clad D-Bus API it
-uses, and the reasoning behind each UI decision. Every API fact below was verified live on
-RHEL 9.8 and RHEL 10.2 unless marked otherwise.
+uses, and the reasoning behind each UI decision. Every API fact below was verified live with
+command-line-assistant 0.5.2-4 on RHEL 9.8 and RHEL 10.2 unless marked otherwise. "Supported
+command-line-assistant versions" says what differs in older builds and which of them were tested.
 
 ---
 
@@ -17,8 +18,10 @@ shell, no command line to build, and no input that could be interpreted as one. 
 the rest by construction: the user authenticates, TLS comes with it, the module runs as that user,
 and the daemon enforces per-user access.
 
-Audience is a field/demo tool first: it needs an RHSM-registered host with egress to Red Hat.
-Disconnected and air-gapped sites can't use it, which is acceptable for v1.
+Audience is a field/demo tool first. On a default installation clad sends each question to Red
+Hat's service, which needs an RHSM-registered host with egress to Red Hat. The module itself only
+talks to the local clad, so with clad pointed at a self-hosted or disconnected endpoint (and
+command-line-assistant 0.4.2 or newer), nothing in the module needs egress.
 
 ### Stateless, facts as written
 
@@ -74,8 +77,9 @@ logged-in user.
 
 Versions found: both RHEL 9.8 and 10.2 ship **`command-line-assistant-0.5.2-4`** and
 **`cockpit-bridge-356.2`**, so one codebase serves both. clad is **D-Bus activated** (no enable needed).
+Older builds lack some of these methods; see "Supported command-line-assistant versions".
 
-`busctl introspect` (identical on 9.8 and 10.2, matching upstream source):
+`busctl introspect` of 0.5.2-4 (identical on 9.8 and 10.2, matching upstream source):
 
 ```
 com.redhat.lightspeed.user     /com/redhat/lightspeed/user
@@ -172,6 +176,65 @@ with the CLI.
 
 ---
 
+## Supported command-line-assistant versions
+
+**The floor is command-line-assistant 0.4.2.** Which build a host has depends on its RHEL minor
+release and on whether it took the z-stream updates:
+
+| RHEL release | Build | Status |
+|---|---|---|
+| 9.6 / 10.0 | 0.3.1-1, 0.3.1-3, 0.3.1-6 | **Unsupported.** Grey "Unsupported version" label and an upgrade hint, nothing else |
+| 9.7 / 10.1 | 0.4.2-1 | Supported. No `IsRedHatManagedEndpoint` (see below) |
+| 9.8 / 10.2 (GA) | 0.5.0-2 | Supported. No `IsRedHatManagedEndpoint` (see below) |
+| 9.8 / 10.2 (RHBA-2026:67586 / 67587, 2026-09-15) | 0.5.2-4 | Supported, everything described in this document |
+| (upstream only) | 0.5.3 | Not in RHEL. Changes no D-Bus method (source compared, not tested) |
+
+Tested live by installing each of 0.4.2-1, 0.5.0-2 and 0.5.2-4 (with its `-selinux` subpackage) on
+RHEL 9.8 and RHEL 10.2, full suite in both browsers, and 0.3.1-6 for the unsupported state. The
+9.7/10.1 and 9.6/10.0 hosts themselves were not tested. The RPM has
+`Recommends: command-line-assistant >= 0.4.2`.
+
+What differs between builds, as far as this module is concerned:
+
+| | 0.3.1-x | 0.4.2-1, 0.5.0-2 | 0.5.2-4 |
+|---|---|---|---|
+| `IsChatAvailable` | missing | yes | yes |
+| `systeminfo` question key | rejected (`DBusStructureError`) | yes | yes |
+| `IsRedHatManagedEndpoint` | missing | missing | yes |
+| `c` prints Red Hat's "…may be used to improve Red Hat's products or services." sentences | always | always | only when `IsRedHatManagedEndpoint` is true |
+
+Every other method, signature and reply shape is the same in all of them.
+
+**Capability check, once at load.** The page calls `IsRedHatManagedEndpoint()` alongside
+`GetUserId`, and `IsChatAvailable(user, "cockpit")` (a read) once `GetUserId` has answered. A reply of
+`org.freedesktop.DBus.Error.UnknownMethod` means "this build does not have it", never a connection
+error. `GetUserId`'s result is kept even when a later call fails, so the chat list and History stay
+usable in the error state. Genuine failures (anything other than UnknownMethod) still show clad's
+message verbatim under "Connection error".
+
+**Older than 0.4.2: "Unsupported version".** Decided from rpm's version
+(`rpm -q command-line-assistant`, VERSION compared numerically with 0.4.2) **or** from
+`IsChatAvailable` being missing, so it also works when rpm can't be read. The label is grey
+"Unsupported version" and the whole body is: "This page needs command-line-assistant 0.4.2 or newer.
+Installed: VERSION-RELEASE." (the second sentence only when rpm reported it) and
+`sudo dnf upgrade command-line-assistant`. Ask and History are not offered: 0.3.1 also rejects the
+`systeminfo` key, never forwards terminal or systeminfo to the backend, and 0.3.1-1/-3 have no
+per-user authorization in clad.
+
+**No `IsRedHatManagedEndpoint` (0.4.2, 0.5.0): connected, and the text `c` of that build shows.**
+The page is fully usable. `c` before 0.5.2 always prints the Red Hat sentences, so the page does
+too: `LEGAL_NOTICE_RHSM` in the legal notice and "Feedback may be used to improve Red Hat's products
+or services." in the About feedback section. The About endpoint line is left out: clad gives an
+unprivileged caller no way to know the endpoint (`config.toml` is not readable by the user).
+
+**Endpoint line wording (0.5.2 and newer).** It is clad's own answer, shown as such: true →
+"Red Hat managed endpoint", false → "Not a Red Hat managed endpoint". clad 0.5.2 answers true only
+for the hostnames `cert.console.redhat.com` and `cert.console.stage.redhat.com`, so a
+Satellite-proxied endpoint reports false even though its requests reach Red Hat through Satellite;
+the page shows that answer, and hides the Red Hat sentences there, exactly as `c` does.
+
+---
+
 ## UI
 
 React + PatternFly 6 on the Cockpit Starter Kit stack (esbuild, `pkg/lib` fetched from a pinned
@@ -219,14 +282,16 @@ Layout:
   | loading | grey "Connecting…" | nothing yet |
   | connected | green, check-circle icon, "Connected" | the tabs |
   | not installed | grey "Not installed" | empty state with `dnf install command-line-assistant` |
+  | unsupported version (older than 0.4.2) | grey "Unsupported version" | empty state: "This page needs command-line-assistant 0.4.2 or newer. Installed: VERSION-RELEASE." and `sudo dnf upgrade command-line-assistant` |
   | disabled | grey, lock icon, "Disabled" (an administrator's choice, not a fault: not orange/red) | "The administrator has disabled…" empty state |
   | connection error | red, exclamation-circle icon, "Connection error" | danger alert with clad's error text verbatim; tabs shown |
 
 - The (i) is a plain `Button` named **"About"** that opens a `Popover` named "About" (click, Enter or
   Space; not hover; Escape closes). Each line appears only once it is known, never guessed:
-  - "Red Hat endpoint" / "Custom endpoint": only when `IsRedHatManagedEndpoint` answered. It is asked
-    on its own at load, in parallel with `GetUserId`, so it can be known in the error state too; the
-    connected state still needs it (a failure there is a connection error).
+  - "Red Hat managed endpoint" / "Not a Red Hat managed endpoint": only when `IsRedHatManagedEndpoint`
+    answered. It is asked on its own at load, in parallel with `GetUserId`, so it can be known in the
+    error state too; the connected state still needs it (a failure there is a connection error,
+    except UnknownMethod: builds before 0.5.2 have no such method, and the line is left out).
   - "command-line-assistant VERSION-RELEASE": whenever `rpm -q` reports it. rpm is asked on its own,
     independent of clad, so the version shows while loading, not installed (if rpm still has it),
     disabled and on error.
@@ -239,8 +304,9 @@ Layout:
     - **"Feedback on the command-line assistant"**: `c feedback`'s text,
       verbatim (`command_line_assistant/commands/feedback.py`, 0.5.2-4, byte-identical on RHEL 9.8 and
       10.2): "Do not include any personal information or other sensitive information in your
-      feedback." with " Feedback may be used to improve Red Hat's products or services." appended only
-      when `IsRedHatManagedEndpoint` returned true (the CLI's own rule), then "To submit feedback, use
+      feedback." with " Feedback may be used to improve Red Hat's products or services." appended
+      when `IsRedHatManagedEndpoint` returned true, or always on builds without that method (the CLI's
+      own rule in each build), then "To submit feedback, use
       the following email address: cla-feedback@redhat.com." with the address as a `mailto:` link (the
       CLI prints it in angle brackets, `<cla-feedback@redhat.com>`; the link replaces the brackets).
     - **"Feedback on this page"**: one link, "Report a problem with this module", to the project's issue
@@ -301,7 +367,8 @@ Layout:
 - **Legal text — match upstream `c` exactly** (it is Red Hat's own text, so it is shown as written, not
   paraphrased). Always show `LEGAL_NOTICE`: "This feature uses AI technology. Do not
   include any personal information or other sensitive information in your input." On a Red Hat endpoint
-  (`IsRedHatManagedEndpoint`), additionally show `LEGAL_NOTICE_RHSM`: "Interactions may be used to
+  (`IsRedHatManagedEndpoint`), and always on builds without that method (as their `c` does),
+  additionally show `LEGAL_NOTICE_RHSM`: "Interactions may be used to
   improve Red Hat's products or services." After **every** answer, show `ALWAYS_LEGAL_MESSAGE`: "Always
   review AI-generated content prior to use." None are dismissible (remembering a dismissal would be
   state).
@@ -394,8 +461,10 @@ Layout:
 | State | Behavior |
 |---|---|
 | `command-line-assistant` not installed (D-Bus name not activatable) | Empty state with `dnf install command-line-assistant` and one line on what it is; module still loads; label grey "Not installed" |
+| `command-line-assistant` older than 0.4.2 (rpm version, or `IsChatAvailable` → UnknownMethod) | Empty state with the required and installed versions and `sudo dnf upgrade command-line-assistant`; label grey "Unsupported version" |
+| `IsRedHatManagedEndpoint` → UnknownMethod (0.4.2, 0.5.0) | Connected; no endpoint line; Red Hat sentences shown, as that build's `c` does |
 | clad error / host not registered | Red alert with the daemon's error text; Ask disabled; History still works if reachable; label red "Connection error" |
-| `IsRedHatManagedEndpoint() == false` | "Custom endpoint" in the About popover |
+| `IsRedHatManagedEndpoint() == false` | "Not a Red Hat managed endpoint" in the About popover; no Red Hat sentences |
 | D-Bus AccessDenied for this user | "The assistant has been disabled for your account by the administrator."; label grey "Disabled" (lock) |
 
 ---
@@ -404,8 +473,8 @@ Layout:
 
 - `noarch` RPM, `BuildArch: noarch`. **Must build and run on el9 and el10.** COPR chroots rhel-9 +
   rhel-10 (or epel-9/10).
-- `Requires: cockpit-bridge`. **`Recommends: command-line-assistant`** (not Requires) so the module
-  installs alone and shows its install-hint empty state.
+- `Requires: cockpit-bridge`. **`Recommends: command-line-assistant >= 0.4.2`** (not Requires) so the
+  module installs alone and shows its install-hint (or upgrade-hint) empty state.
 - No owned config file, no `/var/lib/cockpit-cla/`, no SELinux `.fc` (no host-side
   state). Revisit only if settings are ever added.
 
@@ -421,9 +490,11 @@ deliberate, scoped to clad, and mitigated by the always-on disclosure and the vi
 
 ## Test targets
 
-Tested on RHEL 9.8 and RHEL 10.2, each with `command-line-assistant` 0.5.2-4 and Cockpit 356, in
-Chromium and Firefox (Playwright; see `TESTING.md`). Every feature is verified on both releases, in
-both browsers, before it is called done.
+Tested on RHEL 9.8 and RHEL 10.2 with Cockpit 356, in Chromium and Firefox (Playwright; see
+`TESTING.md`), with each supported `command-line-assistant` build installed in turn: 0.4.2-1, 0.5.0-2
+and 0.5.2-4 (full suite), plus 0.3.1-6 for the "Unsupported version" state. Every feature is
+verified on both releases, in both browsers, before it is called done. The suite detects the
+installed build and asserts that build's behaviour.
 
 **Gotcha when scripting `c` over `ssh host 'bash -s' < script`:** `c` reads stdin as context and
 swallows the rest of the script. Always run `c … </dev/null`.

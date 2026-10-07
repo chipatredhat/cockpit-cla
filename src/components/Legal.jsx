@@ -5,16 +5,19 @@
 // remembering a dismissal would be state. See DESIGN.md "Legal text".
 import React from 'react';
 
+import { showsRedHatSentence } from '../lib/clad.js';
+
 export const LEGAL_NOTICE = "This feature uses AI technology. Do not include any personal information or other sensitive information in your input.";
 export const LEGAL_NOTICE_RHSM = "Interactions may be used to improve Red Hat's products or services.";
 export const ALWAYS_LEGAL_MESSAGE = "Always review AI-generated content prior to use.";
 
-// Shown with the question form. The RHSM line only on a Red Hat endpoint,
-// as `c` does (IsRedHatManagedEndpoint).
+// Shown with the question form. The RHSM line whenever `c` of the installed
+// build prints it: on a Red Hat endpoint (IsRedHatManagedEndpoint), and
+// always on builds without that method (before 0.5.2).
 export const LegalNotice = ({ managed }) => (
     <div className="ct-assistant-disclosure">
         <div className="ct-assistant-legal-notice">{LEGAL_NOTICE}</div>
-        {managed && <div className="ct-assistant-legal-rhsm">{LEGAL_NOTICE_RHSM}</div>}
+        {showsRedHatSentence(managed) && <div className="ct-assistant-legal-rhsm">{LEGAL_NOTICE_RHSM}</div>}
     </div>
 );
 

@@ -15,6 +15,8 @@ import { LockIcon } from "@patternfly/react-icons/dist/esm/icons/lock-icon.js";
 import { InfoCircleIcon } from "@patternfly/react-icons/dist/esm/icons/info-circle-icon.js";
 import { PackageIcon } from "@patternfly/react-icons/dist/esm/icons/package-icon.js";
 
+import { MIN_VERSION, showsRedHatSentence } from '../lib/clad.js';
+
 const _ = cockpit.gettext;
 
 export const FEEDBACK_ADDRESS = "cla-feedback@redhat.com";
@@ -31,6 +33,8 @@ function stateLabel(state) {
         return { color: "green", icon: <CheckCircleIcon />, text: _("Connected") };
     case "not-installed":
         return { color: "grey", text: _("Not installed") };
+    case "unsupported":
+        return { color: "grey", text: _("Unsupported version") };
     case "disabled":
         // An administrator's choice, not a fault.
         return { color: "grey", icon: <LockIcon />, text: _("Disabled") };
@@ -41,7 +45,8 @@ function stateLabel(state) {
 
 // What `c feedback` prints (command_line_assistant/commands/feedback.py,
 // 0.5.2, identical on RHEL 9 and 10): the notice, with Red Hat's extra
-// sentence only on a Red Hat endpoint, then the address.
+// sentence when `c` of the installed build adds it (showsRedHatSentence),
+// then the address.
 const Feedback = ({ managed }) => {
     const [before, after] = _("To submit feedback, use the following email address: $0.").split("$0");
     return (
@@ -51,7 +56,7 @@ const Feedback = ({ managed }) => {
             </Title>
             <p className="ct-assistant-feedback-notice">
                 {_("Do not include any personal information or other sensitive information in your feedback.")}
-                {managed === true &&
+                {showsRedHatSentence(managed) &&
                     <span className="ct-assistant-feedback-managed">
                         {" " + _("Feedback may be used to improve Red Hat's products or services.")}
                     </span>}
@@ -78,7 +83,8 @@ const ModuleFeedback = () => (
 
 // The state label and, always beside it, the (i) "About" popover. Each line in
 // it is shown only once it is known: the endpoint once clad has answered
-// IsRedHatManagedEndpoint, each version once rpm has reported it.
+// IsRedHatManagedEndpoint (never on builds without it, which give no way to
+// know), each version once rpm has reported it.
 export const StatusLabel = ({ state, about }) => {
     const label = stateLabel(state);
     const endpointKnown = typeof about.managed === "boolean";
@@ -93,7 +99,7 @@ export const StatusLabel = ({ state, about }) => {
                     <>
                         {endpointKnown &&
                             <div className="ct-assistant-endpoint">
-                                {about.managed ? _("Red Hat endpoint") : _("Custom endpoint")}
+                                {about.managed ? _("Red Hat managed endpoint") : _("Not a Red Hat managed endpoint")}
                             </div>}
                         {about.version &&
                             <div className="ct-assistant-version">
@@ -135,6 +141,25 @@ export const StatusDetail = ({ status }) => {
                 <EmptyStateBody>
                     <p>{_("This page is a web console front end for the RHEL command-line assistant (the c command). Install it to use this page:")}</p>
                     <p><code>dnf install command-line-assistant</code></p>
+                </EmptyStateBody>
+            </EmptyState>
+        );
+
+    case "unsupported":
+        return (
+            <EmptyState
+                className="ct-assistant-status-detail" headingLevel="h2" icon={PackageIcon}
+                titleText={_("Unsupported version of the command-line assistant")}
+            >
+                <EmptyStateBody>
+                    <p>
+                        {cockpit.format(_("This page needs command-line-assistant $0 or newer."), MIN_VERSION)}
+                        {status.installed &&
+                            <span className="ct-assistant-installed-version">
+                                {" " + cockpit.format(_("Installed: $0."), status.installed)}
+                            </span>}
+                    </p>
+                    <p><code>sudo dnf upgrade command-line-assistant</code></p>
                 </EmptyStateBody>
             </EmptyState>
         );
