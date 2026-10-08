@@ -127,7 +127,20 @@ devel-uninstall:
 print-version:
 	@echo "$(VERSION)"
 
-dist: $(TARFILE)
+# The package version is VERSION above, never the spec's Version: line — that
+# is the literal placeholder %{VERSION}, filled in when cockpit-cla.spec is
+# generated. `git describe` finds nothing in a repo with no tags, VERSION
+# falls back to 1, and the build quietly produces cockpit-cla-1-2.el9.rpm.
+# Stop instead: the tarball names have to agree with the spec, so the version
+# has to be set here.
+check-version:
+	@test "$(VERSION)" != "1" || { \
+	    echo "ERROR: no git tag found, so this would build as version 1." >&2; \
+	    echo "  Tag the release:   git tag 2.0.1" >&2; \
+	    echo "  …or say it once:   make $(MAKECMDGOALS) VERSION=2.0.1" >&2; \
+	    exit 1; }
+
+dist: check-version $(TARFILE)
 	@ls -1 $(TARFILE)
 
 # when building a distribution tarball, call bundler with a 'production' environment
@@ -159,7 +172,7 @@ RPM_DIR = $(CURDIR)/rpms
 RPMBUILD_DIST = $(if $(DIST),--define "dist $(DIST)")
 
 # convenience target for developers
-srpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
+srpm: check-version $(TARFILE) $(NODE_CACHE) $(SPEC)
 	rpmbuild -bs \
 	  --define "_sourcedir `pwd`" \
 	  --define "_srcrpmdir `pwd`" \
@@ -167,7 +180,7 @@ srpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
 	  $(SPEC)
 
 # convenience target for developers
-rpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
+rpm: check-version $(TARFILE) $(NODE_CACHE) $(SPEC)
 	mkdir -p "$(RPM_DIR)"
 	mkdir -p "`pwd`/rpmbuild"
 	rpmbuild -bb \
@@ -225,4 +238,4 @@ $(NODE_MODULES_TEST): package.json
 	for _ in `seq 3`; do timeout 10m env -u NODE_ENV npm install --ignore-scripts && exit 0; done; exit 1
 	env -u NODE_ENV npm prune
 
-.PHONY: all clean install devel-install devel-uninstall print-version dist node-cache srpm rpm prepare-check check vm print-vm
+.PHONY: all clean install devel-install devel-uninstall print-version check-version dist node-cache srpm rpm prepare-check check vm print-vm
