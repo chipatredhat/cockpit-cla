@@ -118,7 +118,7 @@ involved.
 
 ## Maintainer
 
-Chip Shabazian <chip@redhat.com>. Written by Peter Buchan.
+Chip Shabazian <chip@redhat.com>. Re-written by Peter Buchan.
 
 ## License
 
