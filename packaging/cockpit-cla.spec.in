@@ -74,7 +74,7 @@ find %{buildroot}%{_datadir}/cockpit/ -name '*.map' | xargs --no-run-if-empty rm
 %{_datadir}/metainfo/*
 
 %changelog
-* The Oct 08 2026 Chip Shabazian <chip@redhat.com> - 2.0.1-2
+* Thu Oct 08 2026 Chip Shabazian <chip@redhat.com> - 2.0.1-2
 - Sending the system identity is now opt-out, checked by default.
 
 * Wed Oct 07 2026 Peter Buchan <pbuchan@redhat.com> - 2.0.1-1
