@@ -147,28 +147,44 @@ $(NODE_CACHE): $(NODE_MODULES_TEST)
 
 node-cache: $(NODE_CACHE)
 
+# Built packages are kept here. Only rpmbuild's scratch directories get
+# cleaned up after a build; what it produced stays.
+RPM_DIR = $(CURDIR)/rpms
+
+# The release tag comes from the build host: rpmbuild on RHEL 9 stamps .el9.
+# `make rpm DIST=.el10` labels the package for another release instead. That
+# is honest for this package only because it is noarch, ships the pre-built
+# bundle, and nothing in the spec differs between el9 and el10 — build in
+# mock (see README) for anything where the build environment matters.
+RPMBUILD_DIST = $(if $(DIST),--define "dist $(DIST)")
+
 # convenience target for developers
 srpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
 	rpmbuild -bs \
 	  --define "_sourcedir `pwd`" \
 	  --define "_srcrpmdir `pwd`" \
+	  $(RPMBUILD_DIST) \
 	  $(SPEC)
 
 # convenience target for developers
 rpm: $(TARFILE) $(NODE_CACHE) $(SPEC)
-	mkdir -p "`pwd`/output"
+	mkdir -p "$(RPM_DIR)"
 	mkdir -p "`pwd`/rpmbuild"
 	rpmbuild -bb \
 	  --define "_sourcedir `pwd`" \
 	  --define "_specdir `pwd`" \
 	  --define "_builddir `pwd`/rpmbuild" \
 	  --define "_srcrpmdir `pwd`" \
-	  --define "_rpmdir `pwd`/output" \
+	  --define "_rpmdir $(RPM_DIR)" \
 	  --define "_buildrootdir `pwd`/build" \
+	  $(RPMBUILD_DIST) \
 	  $(SPEC)
-	find `pwd`/output -name '*.rpm' -printf '%f\n' -exec mv {} . \;
-	rm -r "`pwd`/rpmbuild"
-	rm -r "`pwd`/output" "`pwd`/build"
+	# rpmbuild files them under <arch>/; keep them all directly in rpms/
+	find "$(RPM_DIR)" -mindepth 2 -name '*.rpm' -exec mv -f {} "$(RPM_DIR)/" \;
+	find "$(RPM_DIR)" -mindepth 1 -type d -empty -delete
+	rm -r "`pwd`/rpmbuild" "`pwd`/build"
+	@echo "Built, and kept in $(RPM_DIR):"
+	@ls -1 "$(RPM_DIR)"/*.rpm
 
 # build a VM with locally built distro pkgs installed
 # disable networking, VM images have mock/pbuilder with the common build dependencies pre-installed
@@ -209,4 +225,4 @@ $(NODE_MODULES_TEST): package.json
 	for _ in `seq 3`; do timeout 10m env -u NODE_ENV npm install --ignore-scripts && exit 0; done; exit 1
 	env -u NODE_ENV npm prune
 
-.PHONY: all clean install devel-install devel-uninstall print-version dist node-cache rpm prepare-check check vm print-vm
+.PHONY: all clean install devel-install devel-uninstall print-version dist node-cache srpm rpm prepare-check check vm print-vm

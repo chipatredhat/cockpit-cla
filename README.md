@@ -110,7 +110,21 @@ make watch             # rebuilds dist/ on save; refresh the browser to pick it 
 make devel-uninstall
 ```
 
-`make rpm` builds an RPM, and `make dist` the source tarball.
+`make rpm` builds an RPM into `rpms/`, and `make dist` the source tarball. The version comes from
+`git describe`, so tag the release first (`git tag 2.0.1`) or the package is built as version `1`.
+
+The release tag comes from the build host, so `make rpm` on RHEL 9 gives `.el9`. For the other
+RHEL:
+
+```bash
+make rpm                      # on a RHEL 10 host: .el10
+make rpm DIST=.el10           # on a RHEL 9 host: same package, labelled .el10
+make srpm && mock -r centos-stream-10-x86_64 --resultdir=rpms/el10 \
+    --rebuild cockpit-cla-*.src.rpm    # built in a real el10 root
+```
+
+`DIST=` only relabels; it is honest here because the package is noarch, ships the pre-built bundle,
+and nothing in the spec differs between el9 and el10. Use mock when that stops being true.
 
 See [DESIGN.md](DESIGN.md) for the architecture and the reasoning behind each decision,
 [TESTING.md](TESTING.md) for the Playwright suite, and [CONTRIBUTING.md](CONTRIBUTING.md) to get
