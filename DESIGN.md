@@ -140,7 +140,8 @@ The `c` client fills `systeminfo` from `/etc/os-release` (`NAME`, `VERSION_ID`, 
 arch. The module does the same: read `/etc/os-release` with `cockpit.file()` and get arch from
 `cockpit.spawn(["uname","-m"])` (or the host info Cockpit already exposes). This is non-sensitive OS
 identity, read verbatim — fully compliant with facts-as-written — and sending it gives answers on par
-with the CLI.
+with the CLI. It is the default for that reason, but the user can leave it out per question with the
+checkbox on the line that shows it (see "Ask tab" below).
 
 ### Facts that shape the design
 
@@ -361,9 +362,12 @@ Layout:
   "Read as <user>.", from `cockpit.Superuser.Current` on the internal bus before and after the read.
   If that can't be told (unknown, still starting, or changed mid-read), it says "Read with
   administrative access when available."
-- `systeminfo` is attached automatically (see above) — shown read-only as one line under the legal
-  text, "Also sent with each question: NAME VERSION_ID (ID) · arch", values verbatim. The "terminal
-  output is never sent" sentence is in a popover on that line.
+- `systeminfo` is attached by default (see above) — shown read-only as one line under the legal
+  text, "Send with each question: NAME VERSION_ID (ID) · arch", values verbatim, behind a checkbox
+  that starts checked (as `c` always sends it). Clearing the checkbox keeps the `systeminfo` key —
+  clad needs all five — with its four values empty, the shape verified against clad. The choice is
+  per page load, read at Ask time; remembering it would be state. The "terminal output is never
+  sent" sentence is in a popover on that line.
 - **Legal text — match upstream `c` exactly** (it is Red Hat's own text, so it is shown as written, not
   paraphrased). Always show `LEGAL_NOTICE`: "This feature uses AI technology. Do not
   include any personal information or other sensitive information in your input." On a Red Hat endpoint

@@ -5,6 +5,7 @@ import { Form, FormGroup } from "@patternfly/react-core/dist/esm/components/Form
 import { Alert } from "@patternfly/react-core/dist/esm/components/Alert/index.js";
 import { Button } from "@patternfly/react-core/dist/esm/components/Button/index.js";
 import { Card, CardBody } from "@patternfly/react-core/dist/esm/components/Card/index.js";
+import { Checkbox } from "@patternfly/react-core/dist/esm/components/Checkbox/index.js";
 import { Divider } from "@patternfly/react-core/dist/esm/components/Divider/index.js";
 import { ExpandableSection } from "@patternfly/react-core/dist/esm/components/ExpandableSection/index.js";
 import { Flex, FlexItem } from "@patternfly/react-core/dist/esm/layouts/Flex/index.js";
@@ -52,12 +53,21 @@ function sourceText(source) {
 }
 
 // One line of the identity sent with every question, values verbatim from
-// /etc/os-release and uname -m.
-const SystemInfoLine = ({ systemInfo }) => (
+// /etc/os-release and uname -m. The checkbox (checked by default, as the `c`
+// client always sends it) leaves it out of the next question.
+const SystemInfoLine = ({ systemInfo, isSent, onToggle }) => (
     <div className="ct-assistant-systeminfo">
-        {_("Also sent with each question:")}{" "}
-        <strong>{systemInfo.os} {systemInfo.version}</strong>{" "}
-        (<code>{systemInfo.id}</code>) · <code>{systemInfo.arch}</code>
+        <Checkbox
+            id="ct-assistant-send-systeminfo" isChecked={isSent}
+            onChange={(_ev, v) => onToggle(v)}
+            label={
+                <>
+                    {_("Send with each question:")}{" "}
+                    <strong>{systemInfo.os} {systemInfo.version}</strong>{" "}
+                    (<code>{systemInfo.id}</code>) · <code>{systemInfo.arch}</code>
+                </>
+            }
+        />
         <Popover
             bodyContent={_("Terminal output is never sent: there is no terminal session behind the web console.")}
             aria-label={_("What else is sent")}
@@ -148,6 +158,7 @@ export const AskTab = ({ canAsk, userId, managed, chatName, onChatUsed, systemIn
     // A read file: { path, readAs, userName, edited }; null for pasted text.
     const [source, setSource] = useState(/** @type {Object|null} */ (null));
     const [keep, setKeep] = useState("first"); // which end of the context survives a trim
+    const [sendSystemInfo, setSendSystemInfo] = useState(true); // the systeminfo line below the form
     const [contextExpanded, setContextExpanded] = useState(false);
     const [showPath, setShowPath] = useState(false);
     const [filePath, setFilePath] = useState("");
@@ -284,7 +295,9 @@ export const AskTab = ({ canAsk, userId, managed, chatName, onChatUsed, systemIn
             // doesn't throw away an answer we already paid for.
             chatId = await ensureChat(userId, sentChat);
             onChatUsed();
-            answer = await askQuestion(userId, buildQuestion(sentQuestion, sent.context, systemInfo));
+            answer = await askQuestion(userId,
+                                       buildQuestion(sentQuestion, sent.context,
+                                                     sendSystemInfo ? systemInfo : null));
         } catch (ex) {
             updateEntry(id, { status: "error", error: errorText(ex) });
             setAnnouncement(_("The command-line assistant returned an error."));
@@ -469,7 +482,13 @@ export const AskTab = ({ canAsk, userId, managed, chatName, onChatUsed, systemIn
                                 justifyContent={{ default: 'justifyContentSpaceBetween' }}
                                 alignItems={{ default: 'alignItemsCenter' }}
                             >
-                                <FlexItem>{systemInfo && <SystemInfoLine systemInfo={systemInfo} />}</FlexItem>
+                                <FlexItem>
+                                    {systemInfo &&
+                                        <SystemInfoLine
+                                            systemInfo={systemInfo} isSent={sendSystemInfo}
+                                            onToggle={setSendSystemInfo}
+                                        />}
+                                </FlexItem>
                                 {context && !fit.questionTooLong &&
                                     <FlexItem className="ct-assistant-counter">
                                         {cockpit.format(_("$0 context + $1 question / $2 characters"),

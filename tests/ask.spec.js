@@ -2,7 +2,7 @@ const { execFileSync } = require('child_process');
 const { test, expect } = require('@playwright/test');
 const { loginToCockpit, COCKPIT_URL, MODULE_PATH } = require('./helpers/cockpit.js');
 const { routeCockpitSocket, callMethod } = require('./helpers/socket.js');
-const { readFileInUi } = require('./helpers/module.js');
+const { openModule, readFileInUi, localAsk } = require('./helpers/module.js');
 
 // Optional ssh access to the same VM, to confirm WriteHistory landed with the
 // CLI itself. COCKPIT_SSH is an ssh destination; COCKPIT_SSH_CONFIG an
@@ -102,13 +102,15 @@ test.describe('Ask tab', () => {
             await expect(page.locator('.ct-assistant-status')).toContainText('Connected', { timeout: 30000 });
         });
 
-        test('systeminfo from /etc/os-release is one read-only line, always shown', async ({ page }) => {
-            // Shown without opening the context editor: it is always sent.
+        test('systeminfo from /etc/os-release is one read-only line, shown and checked', async ({ page }) => {
+            // Shown without opening the context editor: it is sent by default.
             await expect(page.getByRole('button', { name: /^Add context/ })).toHaveAttribute('aria-expanded', 'false');
             const info = page.locator('.ct-assistant-systeminfo');
             await expect(info).toBeVisible();
-            await expect(info).toContainText(/^Also sent with each question: Red Hat Enterprise Linux \d+\.\d+ \(rhel\) · x86_64$/);
-            await expect(info.locator('input, textarea')).toHaveCount(0);
+            await expect(info).toContainText(/^Send with each question: Red Hat Enterprise Linux \d+\.\d+ \(rhel\) · x86_64$/);
+            // Its only control is the checkbox; the values themselves are read-only.
+            await expect(info.getByRole('checkbox')).toBeChecked();
+            await expect(info.locator('textarea, input:not([type="checkbox"])')).toHaveCount(0);
             const box = await info.boundingBox();
             expect(box.height).toBeLessThan(40); // one line
 
@@ -134,5 +136,36 @@ test.describe('Ask tab', () => {
             await expect(page.locator('#ct-assistant-context-text')).toHaveValue(content);
         });
         // Root-only files, with and without administrative access: context-file.spec.js.
+    });
+
+    // Answered locally: this is about what leaves the page, not about answers.
+    test('the checkbox decides whether the identity goes with the question', async ({ page }) => {
+        const { route, asked } = localAsk();
+        await openModule(page, route);
+
+        const checkbox = page.locator('.ct-assistant-systeminfo').getByRole('checkbox');
+        await expect(checkbox).toBeChecked();
+        await checkbox.uncheck();
+
+        await page.fill('#ct-assistant-question', 'Asked without the system identity');
+        await page.getByRole('button', { name: 'Ask', exact: true }).click();
+        await expect(page.locator('.ct-assistant-answer')).toHaveCount(1);
+
+        // clad needs all five keys, so systeminfo is still there — but empty.
+        expect(Object.keys(asked[0]).sort()).toEqual(['attachment', 'message', 'stdin', 'systeminfo', 'terminal']);
+        expect(asked[0].systeminfo.v).toEqual({
+            os: { t: 's', v: '' },
+            version: { t: 's', v: '' },
+            arch: { t: 's', v: '' },
+            id: { t: 's', v: '' },
+        });
+
+        // Checked again, the next question carries it.
+        await checkbox.check();
+        await page.fill('#ct-assistant-question', 'Asked with the system identity');
+        await page.getByRole('button', { name: 'Ask', exact: true }).click();
+        await expect(page.locator('.ct-assistant-answer')).toHaveCount(2);
+        expect(asked[1].systeminfo.v.id.v).toBe('rhel');
+        expect(asked[1].systeminfo.v.arch.v).toBe('x86_64');
     });
 });

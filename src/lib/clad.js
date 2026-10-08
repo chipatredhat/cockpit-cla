@@ -171,8 +171,11 @@ export async function ensureChat(userId, name) {
 
 // All five keys must be present (DESIGN.md "Ask call sequence" step 3).
 // `terminal` is always empty: there is no terminal session behind a web page.
+// systemInfo null (the user cleared the "Send with each question" checkbox)
+// sends the key with its four values empty, the shape verified against clad.
 export function buildQuestion(message, context, systemInfo) {
     const s = v => ({ t: "s", v });
+    const info = systemInfo || { os: "", version: "", arch: "", id: "" };
     return {
         message: s(message),
         stdin: { t: "a{sv}", v: { stdin: s("") } },
@@ -181,10 +184,10 @@ export function buildQuestion(message, context, systemInfo) {
         systeminfo: {
             t: "a{sv}",
             v: {
-                os: s(systemInfo.os),
-                version: s(systemInfo.version),
-                arch: s(systemInfo.arch),
-                id: s(systemInfo.id),
+                os: s(info.os),
+                version: s(info.version),
+                arch: s(info.arch),
+                id: s(info.id),
             }
         },
     };

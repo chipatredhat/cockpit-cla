@@ -131,6 +131,17 @@
     font-size: var(--pf-t--global--font--size--sm);
 }
 
+// Checkbox, the identity itself, and the (?) popover on one line, in the same
+// small subtle type as the rest of the "what gets sent" block.
+.ct-assistant-systeminfo {
+    --pf-v6-c-check__label--FontSize: var(--pf-t--global--font--size--sm);
+    --pf-v6-c-check__label--Color: var(--pf-t--global--text--color--subtle);
+
+    display: flex;
+    align-items: center;
+    gap: var(--pf-t--global--spacer--xs);
+}
+
 .ct-assistant-systeminfo-help {
     vertical-align: middle;
 }
