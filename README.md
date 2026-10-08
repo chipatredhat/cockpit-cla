@@ -132,7 +132,7 @@ involved.
 
 ## Maintainer
 
-Chip Shabazian <chip@redhat.com>. Re-written by Peter Buchan.
+Chip Shabazian <chip@redhat.com>. Initial version 2.0 rewrite by Peter Buchan.
 
 ## License
 
