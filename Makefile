@@ -2,7 +2,10 @@
 PACKAGE_NAME := $(shell awk '/"name":/ {gsub(/[",]/, "", $$2); print $$2}' package.json)
 # install dir / manifest name is "cla" (package.json name), RPM is cockpit-cla
 RPM_NAME := cockpit-cla
-VERSION := $(shell T=$$(git describe 2>/dev/null) || T=1; echo $$T | tr '-' '.')
+# --tags, because `git tag 2.0.1` makes a lightweight tag and a plain
+# `git describe` only looks at annotated ones ("No annotated tags can
+# describe…"), which would leave VERSION at the fallback 1.
+VERSION := $(shell T=$$(git describe --tags 2>/dev/null) || T=1; echo $$T | tr '-' '.')
 ifeq ($(TEST_OS),)
 TEST_OS = centos-9-stream
 endif
@@ -129,15 +132,17 @@ print-version:
 
 # The package version is VERSION above, never the spec's Version: line — that
 # is the literal placeholder %{VERSION}, filled in when cockpit-cla.spec is
-# generated. `git describe` finds nothing in a repo with no tags, VERSION
-# falls back to 1, and the build quietly produces cockpit-cla-1-2.el9.rpm.
-# Stop instead: the tarball names have to agree with the spec, so the version
-# has to be set here.
+# generated. With no tag `git describe` finds nothing, VERSION falls back to
+# 1, and the build quietly produces cockpit-cla-1-2.el9.rpm. Stop instead:
+# the tarball names have to agree with the spec, so the version has to be
+# set here.
 check-version:
 	@test "$(VERSION)" != "1" || { \
-	    echo "ERROR: no git tag found, so this would build as version 1." >&2; \
-	    echo "  Tag the release:   git tag 2.0.1" >&2; \
-	    echo "  …or say it once:   make $(MAKECMDGOALS) VERSION=2.0.1" >&2; \
+	    echo "ERROR: 'git describe --tags' names no tag, so this would build as version 1." >&2; \
+	    echo "  Tag this commit:    git tag 2.0.1" >&2; \
+	    echo "  …or say it once:    make $(MAKECMDGOALS) VERSION=2.0.1" >&2; \
+	    echo "  A tag that exists but is not in this commit's history does not count;" >&2; \
+	    echo "  move it with 'git tag -f 2.0.1'. Tags are local until 'git push --tags'." >&2; \
 	    exit 1; }
 
 dist: check-version $(TARFILE)
