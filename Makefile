@@ -90,11 +90,24 @@ po/LINGUAS:
 # Build/Install/dist
 #
 
-$(SPEC): packaging/$(SPEC).in $(DIST_TEST)
-	provides=$$(awk '{print "Provides: bundled(npm(" $$1 ")) = " $$2}' runtime-npm-modules.txt); \
-	awk -v p="$$provides" '{gsub(/%{VERSION}/, "$(VERSION)"); gsub(/%{NPM_PROVIDES}/, p)}1' $< > $@
+# The spec and the PKGBUILD have VERSION baked into them, but make compares
+# timestamps and cannot see that VERSION changed: a spec generated as
+# version 1 then stays "up to date" under `make rpm VERSION=2.0.1`, and the
+# build quietly produces another version 1. So record the version in a file
+# and depend on that; it is only rewritten when the version really changes.
+VERSION_STAMP = .version-stamp
+$(VERSION_STAMP): FORCE
+	@echo "$(VERSION)" | cmp -s - $@ || echo "$(VERSION)" > $@
+FORCE:
 
-packaging/arch/PKGBUILD: packaging/arch/PKGBUILD.in
+# NPM_PROVIDES goes through the environment, not awk -v: it is many lines,
+# and -v with embedded newlines is a GNU awk extension (BSD awk, so macOS,
+# fails with "newline in string").
+$(SPEC): packaging/$(SPEC).in $(DIST_TEST) $(VERSION_STAMP)
+	NPM_PROVIDES="$$(awk '{print "Provides: bundled(npm(" $$1 ")) = " $$2}' runtime-npm-modules.txt)" \
+	awk '{gsub(/%{VERSION}/, "$(VERSION)"); gsub(/%{NPM_PROVIDES}/, ENVIRON["NPM_PROVIDES"])}1' $< > $@
+
+packaging/arch/PKGBUILD: packaging/arch/PKGBUILD.in $(VERSION_STAMP)
 	sed 's/VERSION/$(VERSION)/; s/SOURCE/$(TARFILE)/' $< > $@
 
 $(DIST_TEST): $(NODE_MODULES_TEST) $(COCKPIT_REPO_STAMP) $(shell find src/ -type f) package.json build.js
@@ -107,7 +120,7 @@ clean:
 	rm -rf dist/
 	rm -f $(SPEC) packaging/arch/PKGBUILD
 	rm -f po/LINGUAS
-	rm -f metafile.json runtime-npm-modules.txt
+	rm -f metafile.json runtime-npm-modules.txt $(VERSION_STAMP)
 
 install: $(DIST_TEST) po/LINGUAS
 	mkdir -p $(DESTDIR)$(PREFIX)/share/cockpit/$(PACKAGE_NAME)
@@ -243,4 +256,4 @@ $(NODE_MODULES_TEST): package.json
 	for _ in `seq 3`; do timeout 10m env -u NODE_ENV npm install --ignore-scripts && exit 0; done; exit 1
 	env -u NODE_ENV npm prune
 
-.PHONY: all clean install devel-install devel-uninstall print-version check-version dist node-cache srpm rpm prepare-check check vm print-vm
+.PHONY: all clean install devel-install devel-uninstall print-version check-version dist node-cache srpm rpm prepare-check check vm print-vm FORCE
