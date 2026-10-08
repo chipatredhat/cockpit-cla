@@ -42,6 +42,14 @@ $(COCKPIT_REPO_STAMP): Makefile
 	@git rev-list --quiet --objects $(COCKPIT_REPO_TREE) -- 2>/dev/null || \
 	    git fetch --no-tags --no-write-fetch-head --depth=1 $(COCKPIT_REPO_URL) $(COCKPIT_REPO_COMMIT)
 	git archive $(COCKPIT_REPO_TREE) -- $(COCKPIT_REPO_FILES) | tar x
+	# file(1) 5.44 and newer — RHEL 10, Fedora — call PatternFly's big CSS
+	# files application/csv, and tools/node-modules' architecture-independence
+	# check has no csv in its allowlist, so `make rpm` dies on the node
+	# tarball. CSV is text; widen the allowlist in our fetched copy. Remove
+	# this once upstream's check knows about csv.
+	sed -i.bak -e "s@-e 'image/'@-e 'image/' -e '(application|text)/csv'@" tools/node-modules
+	rm -f tools/node-modules.bak
+	grep -q "csv" tools/node-modules # the patch above must have applied
 
 #
 # i18n
